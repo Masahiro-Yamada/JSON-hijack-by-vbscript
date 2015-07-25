@@ -483,7 +483,8 @@ VBScriptのfor文はforの後に識別子が必要なので構文エラー 1010(
 </section>
 <section class=slide>
 <h3>8.3.2.先頭に<code>while(1);</code></h3>
-whileの後の<code>";"</code> で構文エラー 1024(Expected statement)
+whileの後の<code>";"</code> で構文エラー 1024(Expected statement)<br>
+<p>この方法は <a href="http://vwzq.net/challenge/jsonhijack.html">UTF-16を使った攻撃手法(http://vwzq.net/challenge/jsonhijack.html)</a>に弱いので推奨しません。</p> 
 <pre id="test62a">while(1)<span class="r">;</span>["sensitive","data","is","here"]</pre>
 <p><input type="button" value="コード実行" onclick="doTest('62a')"></p>
 </section>
