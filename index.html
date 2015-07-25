@@ -320,7 +320,7 @@ JSON配列に攻撃者が文字列を注入できる場所があり、<code clas
 <h3>6.3.3.エラー506(Class not defined)</h3>
     クラスではないものをnew
 <pre id="test223">["sensitive-data-1","<span class="r">]=new [</span>","sensitive-data-2"]</pre>
-    This will be executed as:
+    これは以下のように解釈されます。
 <pre><span class="p">["sensitive-data 1","]</span>=<span class="res">new</span> <span class="p">[","sensitive-data-2"]</span></pre>
     <p><input type="button" value="コード実行" onclick="doTest(223)"></p>
 </section>
